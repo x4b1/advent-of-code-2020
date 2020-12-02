@@ -2,36 +2,58 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
 )
 
-const target = 2020
-const filePath = "./input.txt"
-
 func main() {
-	numbs, err := readFile(filePath)
-	if err != nil {
+	if err := Run(os.Args, os.Stdout); err != nil {
 		log.Fatal(err)
 	}
-
-	n2, _ := multipliedNums(numbs, 0, 2, target)
-	fmt.Printf("result for 2 numbers: %d\n", n2)
-
-	n3, _ := multipliedNums(numbs, 0, 3, target)
-	fmt.Printf("result for 3 numbers: %d\n", n3)
 }
 
-func readFile(path string) (result []int, err error) {
+func Run(args []string, stdout io.Writer) error {
+	if len(args) < 4 {
+		return errors.New("missing parameters, usage: <entries> <target-number> <file-path>")
+	}
+
+	nEntries, err := strconv.Atoi(args[1])
+	if err != nil {
+		return fmt.Errorf("invalid entries: %w", err)
+	}
+
+	target, err := strconv.Atoi(args[2])
+	if err != nil {
+		return fmt.Errorf("invalid target number: %w", err)
+	}
+
+	list, err := numberListFromFile(args[3])
+	if err != nil {
+		return err
+	}
+
+	result, found := findAndMultiplyNums(list, 0, nEntries, target)
+	if !found {
+		return fmt.Errorf("%d not match for %d number for %s file", target, nEntries, args[3])
+	}
+
+	fmt.Fprintf(stdout, "%d", result)
+
+	return nil
+}
+
+func numberListFromFile(path string) (result []int, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 
 	scanner := bufio.NewScanner(f)
-	scanner.Split(bufio.ScanWords)
+	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		n, err := strconv.Atoi(scanner.Text())
 		if err != nil {
@@ -44,10 +66,10 @@ func readFile(path string) (result []int, err error) {
 	return result, scanner.Err()
 }
 
-func multipliedNums(nums []int, currSum int, nEntries int, target int) (int, bool) {
-	if nEntries > 1 {
+func findAndMultiplyNums(nums []int, acc int, entries int, target int) (int, bool) {
+	if entries > 1 {
 		for i, n := range nums {
-			result, found := multipliedNums(nums[i+1:], currSum+n, nEntries-1, target)
+			result, found := findAndMultiplyNums(nums[i+1:], acc+n, entries-1, target)
 			if found {
 				return n * result, true
 			}
@@ -56,7 +78,7 @@ func multipliedNums(nums []int, currSum int, nEntries int, target int) (int, boo
 	}
 
 	for _, n := range nums {
-		if currSum+n == target {
+		if acc+n == target {
 			return n, true
 		}
 	}
